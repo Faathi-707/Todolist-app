@@ -1,6 +1,6 @@
 # TodoList
 
-This was developed for the GirlstoCode capstone project. A fast task manager built with **Flask + MongoDB + HTML/CSS/JS**.  
+This was developed for the GirlstoCode capstone project. A task manager built with **Flask + MongoDB + HTML/CSS/JS**.  
 
 CRUD - Create, read, update and delete files
 
