@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1 class="panel-title">Add a task</h1>
+
+  <form id="addForm" class="form" autocomplete="off">
+    <label>
+      Title
+      <input id="titleInput" name="title" type="text" required placeholder="Buy groceries" />
+    </label>
+
+    <label>
+      Notes
+      <textarea id="notesInput" name="notes" rows="3" placeholder="Milk, eggs, coffee"></textarea>
+    </label>
+
+    <label>
+      Priority
+      <select id="priorityInput" name="priority">
+        <option value="normal" selected>Normal</option>
+        <option value="high">High</option>
+        <option value="low">Low</option>
+      </select>
+    </label>
+
+    <label>
+      Due date
+      <input id="dueInput" name="due_date" type="text" inputmode="numeric"
+             placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}" />
+    </label>
+
+    <div class="row">
+      <button type="submit" class="btn primary"> + Add task</button>
+      <a class="btn" href="{{ url_for('routes.index') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

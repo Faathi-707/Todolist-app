@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TodoList</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<div id="toastHost" aria-live="polite" aria-atomic="true" style="position:fixed;right:16px;bottom:16px;z-index:9999;"></div>
+<script>
+  window.toast = function (msg, type='info') {
+    const host = document.getElementById('toastHost');
+    const el = document.createElement('div');
+    el.style.cssText = "margin-top:8px;padding:10px 14px;border-radius:10px;color:#0b0f14;background:#ffffff;box-shadow:0 8px 24px #0002;border:1px solid #e2e8f0;";
+    if (type==='error') el.style.background = '#ffecec';
+    if (type==='success') el.style.background = '#eafbe7';
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(()=> el.remove(), 2600);
+  };
+</script>
+<body>
+  <!-- Simple responsive navbar -->
+  <nav class="navbar">
+    <div class="container nav-inner">
+      <a class="brand" href="{{ url_for('routes.index') }}">TodoList</a>
+      <ul class="nav-links">
+        <li><a href="{{ url_for('routes.index') }}">All Tasks</a></li>
+        <!-- in a larger app add more pages here -->
+        <li><a href="{{ url_for('routes.add_task') }}">Add Task</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
+</body>
+</html>

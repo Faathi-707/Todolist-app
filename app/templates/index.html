@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1 class="panel-title">Your tasks</h1>
+<div class="row" style="margin: 12px 0;">
+  <input id="searchInput" type="text" placeholder="Search title…" class="search-input" />
+  <select id="filterPriority">
+    <option value="">All priorities</option>
+    <option value="high">High</option>
+    <option value="normal">Normal</option>
+    <option value="low">Low</option>
+  </select>
+</div>
+
+  <!-- Ongoing -->
+  <h2 class="section-title">Ongoing <span id="ongoingCount" class="count-badge">0</span></h2>
+  <ul id="ongoingList" class="task-list" aria-live="polite"></ul>
+  <p id="ongoingEmpty" class="muted hidden">Nothing in progress.</p>
+
+<!-- Add Task CTA between sections -->
+<div class="section-cta">
+  <a href="/add" class="btn primary" id="addTaskCta" aria-label="Add a new task">
+    + Add task
+  </a>
+</div>
+
+  <!-- Done (collapsible) -->
+  <div class="row" style="justify-content: space-between; align-items: baseline;">
+    <h2 class="section-title">Done <span id="doneCount" class="count-badge">0</span></h2>
+
+    <button id="toggleDone" class="toggle-btn" type="button" aria-expanded="true">
+      Hide
+    </button>
+
+  </div>
+  <ul id="doneList" class="task-list" aria-live="polite"></ul>
+  <p id="doneEmpty" class="muted hidden">No completed tasks.</p>
+</section>
+{% endblock %}

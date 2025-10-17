@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Task – {{ task.title }}{% endblock %}
+
+{% block content %}
+<section class="panel task-detail">
+
+  <!-- Header: back | title | status -->
+  <div class="detail-head">
+    <a href="{{ url_for('routes.index') }}" class="link-back" aria-label="Back to all tasks">← Back</a>
+
+    <!-- View mode title -->
+    <h1 class="detail-title" id="titleView">{{ task.title }}</h1>
+
+    <!-- Status chip -->
+    {% set is_done = task.completed %}
+    <span id="statusChip" class="chip status {{ 'done' if is_done else 'open' }}">
+      {{ 'Done' if is_done else 'Open' }}
+    </span>
+  </div>
+
+  <!-- Meta (view mode) -->
+  <ul id="metaView" class="meta-grid">
+    <li>
+      <div class="label">Priority</div>
+      <div><span id="priorityView" class="chip priority {{ task.priority }}">{{ task.priority|capitalize }}</span></div>
+    </li>
+    <li>
+      <div class="label">Due</div>
+      {% set due_ddmmyyyy = task.due_date and (task.due_date[8:10] ~ '/' ~ task.due_date[5:7] ~ '/' ~ task.due_date[0:4]) %}
+      <div id="dueView" class="due-value {{ 'overdue' if is_overdue else '' }}">{{ due_ddmmyyyy or '—' }}</div>
+    </li>
+  </ul>
+
+  <!-- Notes (view mode; hidden if empty) -->
+  {% set notes_clean = (task.notes or '').strip() %}
+  <div id="notesCard" class="notes-card" {% if not notes_clean %}style="display:none"{% endif %}>
+    <div class="notes-title">Notes</div>
+    <p id="notesView" class="notes-body">{{ notes_clean }}</p>
+  </div>
+
+  <!-- EDIT MODE FORM (initially hidden) -->
+  <form id="editForm" class="form" style="display:none" novalidate>
+    <label>
+      Title
+      <input id="editTitle" type="text" value="{{ task.title }}" required />
+    </label>
+
+    <label>
+      Notes
+      <textarea id="editNotes" rows="4">{{ task.notes or '' }}</textarea>
+    </label>
+
+    <label>
+      Priority
+      <select id="editPriority">
+        {% for p in ['low','normal','high'] %}
+          <option value="{{ p }}" {{ 'selected' if task.priority==p else '' }}>{{ p|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Due date
+      <input id="editDue" type="text" placeholder="dd/mm/yyyy"
+             value="{{ task.due_date and (task.due_date[8:10] ~ '/' ~ task.due_date[5:7] ~ '/' ~ task.due_date[0:4]) or '' }}">
+    </label>
+  </form>
+
+  <!-- Footer actions: Back left | Toggle + Delete + Edit/Save/Cancel right -->
+  <div class="detail-actions detail-actions--split">
+    <a href="{{ url_for('routes.index') }}" class="btn quiet">Back</a>
+
+    <div class="actions-right">
+      <!-- Toggle complete -->
+      <button id="toggleComplete"
+              class="btn primary"
+              data-id="{{ task.id }}"
+              data-completed="{{ '1' if task.completed else '0' }}">
+        {{ 'Mark as open' if task.completed else 'Mark as done' }}
+      </button>
+
+      <!-- Delete -->
+      <button id="deleteFromDetail" class="btn danger" data-id="{{ task.id }}">Delete</button>
+
+      <!-- Edit / Save / Cancel (mutually exclusive states) -->
+      <button id="editBtn"   class="btn" type="button">Edit</button>
+      <button id="saveBtn"   class="btn primary" type="button" style="display:none">Save</button>
+      <button id="cancelBtn" class="btn cancel"  type="button" style="display:none">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  /* ------- small utils ------- */
+  function parseDDMMYYYY(s) {
+    if (!s) return null;
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    const [_, dd, mm, yyyy] = m;
+    const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
+    if (isNaN(d.getTime())) return null;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function toDDMMYYYY(iso) {
+    if (!iso) return "";
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    const [_, y, mo, d] = m;
+    return `${d}/${mo}/${y}`;
+  }
+
+  /* ------- DOM refs ------- */
+  const editBtn   = document.getElementById("editBtn");
+  const saveBtn   = document.getElementById("saveBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const form      = document.getElementById("editForm");
+
+  const titleView    = document.getElementById("titleView");
+  const priorityView = document.getElementById("priorityView");
+  const dueView      = document.getElementById("dueView");
+  const notesCard    = document.getElementById("notesCard");
+  const notesView    = document.getElementById("notesView");
+  const metaView     = document.getElementById("metaView");
+
+  const editTitle    = document.getElementById("editTitle");
+  const editNotes    = document.getElementById("editNotes");
+  const editPriority = document.getElementById("editPriority");
+  const editDue      = document.getElementById("editDue");
+
+  const toggleBtn = document.getElementById("toggleComplete");
+  const delBtn    = document.getElementById("deleteFromDetail");
+
+  /* mask for dd/mm/yyyy */
+  if (editDue) {
+    editDue.addEventListener("input", () => {
+      let v = editDue.value.replace(/[^\d]/g,"").slice(0,8);
+      if (v.length >= 5) v = v.slice(0,2) + "/" + v.slice(2,4) + "/" + v.slice(4);
+      else if (v.length >= 3) v = v.slice(0,2) + "/" + v.slice(2);
+      editDue.value = v;
+    });
+  }
+
+  function enterEditMode() {
+    form.style.display = "";
+    metaView.style.display = "none";
+    notesCard.style.display = "none"; // re-evaluate on save
+
+    editBtn.style.display   = "none";
+    saveBtn.style.display   = "";
+    cancelBtn.style.display = "";
+
+    editTitle.value    = titleView.textContent.trim();
+    editNotes.value    = (notesView?.textContent || "").trim();
+    // chip classes: "chip priority low|normal|high"
+    const cls = Array.from(priorityView.classList).find(c => c === "low" || c === "normal" || c === "high");
+    editPriority.value = cls || "normal";
+    const currentIso   = dueView.textContent.trim().match(/^\d{4}-\d{2}-\d{2}$/) ? dueView.textContent.trim() : null;
+    editDue.value      = currentIso ? toDDMMYYYY(currentIso) : (dueView.textContent.trim() === "—" ? "" : dueView.textContent.trim());
+  }
+
+  function exitEditMode() {
+    form.style.display = "none";
+    metaView.style.display = "";
+    const text = (notesView?.textContent || "").trim();
+    notesCard.style.display = text ? "" : "none";
+
+    editBtn.style.display   = "";
+    saveBtn.style.display   = "none";
+    cancelBtn.style.display = "none";
+  }
+
+  editBtn?.addEventListener("click", enterEditMode);
+  cancelBtn?.addEventListener("click", exitEditMode);
+
+  /* Save changes (PATCH) */
+  saveBtn?.addEventListener("click", async () => {
+    const body = {
+      title: editTitle.value.trim(),
+      notes: editNotes.value.trim(),
+      priority: editPriority.value,
+      due_date: parseDDMMYYYY(editDue.value.trim())
+    };
+    if (!body.title) { alert("Title is required"); return; }
+
+    try {
+      const r = await fetch(`/api/tasks/${toggleBtn.dataset.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const updated = await r.json();
+
+      // update view in-place
+      titleView.textContent = updated.title;
+      priorityView.textContent = (updated.priority || "normal").charAt(0).toUpperCase() + (updated.priority || "normal").slice(1);
+      priorityView.className = `chip priority ${updated.priority || 'normal'}`;
+
+      dueView.textContent = updated.due_date || "—";
+
+      const ntext = (updated.notes || "").trim();
+      notesView.textContent = ntext;
+      notesCard.style.display = ntext ? "" : "none";
+
+      exitEditMode();
+    } catch (e) {
+      console.error(e);
+      alert("Save failed");
+    }
+  });
+
+  /* Toggle complete */
+  toggleBtn?.addEventListener("click", async () => {
+    const id = toggleBtn.dataset.id;
+    const raw = (toggleBtn.dataset.completed || "0").toLowerCase();
+    const done = raw === "1" || raw === "true";
+    try {
+      const r = await fetch(`/api/tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !done })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const updated = await r.json();
+
+      toggleBtn.dataset.completed = updated.completed ? "1" : "0";
+      toggleBtn.textContent = updated.completed ? "Mark as open" : "Mark as done";
+
+      const chip = document.getElementById("statusChip");
+      chip.className = `chip status ${updated.completed ? 'done':'open'}`;
+      chip.textContent = updated.completed ? "Done" : "Open";
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update task.");
+    }
+  });
+
+  /* Delete */
+  delBtn?.addEventListener("click", async () => {
+    if (!confirm("Delete this task?")) return;
+    const id = delBtn.dataset.id;
+    try {
+      const r = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error(await r.text());
+      window.location.href = "{{ url_for('routes.index') }}";
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete task.");
+    }
+  });
+})();
+</script>
+{% endblock %}
